@@ -2,7 +2,7 @@
 
 An interactive web application for visualizing instructor locations. This tool allows users to quickly find instructors by name or skill using a dynamic search feature built on an interactive Leaflet.js map.
 
-![Alt text](images/example.png)
+![Alt text](images/maps.png)
 
 
 ---
