@@ -1,61 +1,48 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
     <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
-    <title>Instructor Map</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instructor Map (Responsive)</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.6.0/dist/leaflet.css" />
+
     <script>
         L_NO_TOUCH = false;
         L_DISABLE_3D = false;
     </script>
+
     <style>
-        html,
-        body {
-            width: 100%;
+        /* Make html and body take full height */
+        html, body {
             height: 100%;
             margin: 0;
             padding: 0;
         }
 
+        /* Ensure the map container fills its parent */
         #map {
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            right: 0;
-            left: 0;
-        }
-
-        /* Styles for the new search feature */
-        #search-container {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            z-index: 1000; /* Ensure it's above the map */
-            width: 300px;
-            background: white;
-            border-radius: 5px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-            font-family: Arial, sans-serif;
-        }
-
-        #instructorSearch {
             width: 100%;
-            padding: 10px;
-            font-size: 16px;
-            box-sizing: border-box;
-            border: 1px solid #ccc;
-            border-radius: 5px 5px 0 0;
-            border-bottom: none;
+            height: 100%;
         }
 
+        /* Set a fixed height for the map on mobile to avoid excessive scrolling */
+        @media (max-width: 767.98px) {
+            .map-container {
+                height: 60vh; /* 60% of the viewport height */
+                min-height: 400px;
+            }
+        }
+        
+        /* Custom styles for the search results */
         #searchResults {
-            max-height: 400px;
+            max-height: calc(100vh - 150px); /* Adjust height dynamically */
             overflow-y: auto;
-            border: 1px solid #ccc;
-            border-top: none;
-            border-radius: 0 0 5px 5px;
         }
-
+        
         .search-result-item {
             padding: 10px;
             cursor: pointer;
@@ -75,19 +62,31 @@
         .search-result-item small {
             color: #555;
         }
-
     </style>
-    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.6.0/dist/leaflet.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.6.0/dist/leaflet.css" />
 </head>
 
 <body>
-    <div id="search-container">
-        <input type="text" id="instructorSearch" placeholder="Search Instructor or Course...">
-        <div id="searchResults"></div>
+    <div class="container-fluid vh-100 d-flex flex-column p-0">
+        <div class="row g-0 flex-grow-1">
+            
+            <div class="col-md-4 col-lg-3 d-flex flex-column bg-light p-3">
+                <h4 class="mb-3">Find an Instructor</h4>
+                <div id="search-container">
+                    <input type="text" id="instructorSearch" class="form-control mb-2" placeholder="Search by name or skill...">
+                    <div id="searchResults" class="list-group"></div>
+                </div>
+            </div>
+
+            <div class="col-md-8 col-lg-9 p-0 map-container">
+                <div id="map"></div>
+            </div>
+
+        </div>
     </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.6.0/dist/leaflet.js"></script>
     
-    <div id="map"></div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
         // Initialize the map
@@ -102,7 +101,7 @@
             maxZoom: 18
         }).addTo(map);
 
-        // --- Data Restructured for Searchability ---
+        // --- Data for Searchability ---
         const citiesData = [
             { lat: -6.9175, lon: 107.6191, city: 'Bandung', count: 2, instructors: [
                 { name: 'Rahmat Pradana', skill: 'English for Business' },
@@ -167,76 +166,62 @@
         ];
 
         const allInstructors = [];
-        const markers = {}; // Object to store marker references by city name
+        const markers = {};
 
-        // Reusable table filter function for popups
         function filterTable(tableId, inputId) {
-            var filter = document.getElementById(inputId).value.toUpperCase();
-            var rows = document.querySelectorAll(`#${tableId} tbody tr`);
+            const filter = document.getElementById(inputId).value.toUpperCase();
+            const rows = document.querySelectorAll(`#${tableId} tbody tr`);
             rows.forEach(row => {
-                var cells = Array.from(row.getElementsByTagName('td'));
-                var match = cells.some(cell => cell.innerText.toUpperCase().indexOf(filter) > -1);
+                const cells = Array.from(row.getElementsByTagName('td'));
+                const match = cells.some(cell => cell.innerText.toUpperCase().indexOf(filter) > -1);
                 row.style.display = match ? '' : 'none';
             });
         }
 
-        // Creates a marker and its popup, then returns the marker object
         function createMarkerWithPopup(lat, lon, city, count, data) {
-            var tableRows = data.map(item => `
+            const tableRows = data.map(item => `
                 <tr>
                     <td>${item.name}</td>
                     <td>${item.skill}</td>
                 </tr>
             `).join('');
 
-            var popupContent = `
-                <b>City:</b> ${city}<br>
-                <b>Count:</b> ${count}<br>
-                <input type="text" id="search-${city}" onkeyup="filterTable('table-${city}', 'search-${city}')" placeholder="Filter in ${city}..." style="width: 100%; margin: 10px 0 5px; padding: 5px; box-sizing: border-box;">
-                <div style="overflow-y: auto; max-height: 150px; border: 1px solid #ddd;">
-                    <table id="table-${city}" style="width: 100%; border-collapse: collapse;">
-                        <thead>
-                            <tr style="background-color: #f2f2f2; text-align: left;">
-                                <th style="padding: 5px;">Name</th>
-                                <th style="padding: 5px;">Skill</th>
-                            </tr>
-                        </thead>
-                        <tbody>${tableRows}</tbody>
-                    </table>
+            const popupContent = `
+                <div class="container" style="width: 300px;">
+                    <h5>${city}</h5>
+                    <p><b>Count:</b> ${count}</p>
+                    <input type="text" id="search-${city}" onkeyup="filterTable('table-${city}', 'search-${city}')" class="form-control form-control-sm mb-2" placeholder="Filter in ${city}...">
+                    <div style="overflow-y: auto; max-height: 150px;">
+                        <table id="table-${city}" class="table table-striped table-sm">
+                            <thead>
+                                <tr><th>Name</th><th>Skill</th></tr>
+                            </thead>
+                            <tbody>${tableRows}</tbody>
+                        </table>
+                    </div>
                 </div>`;
             
-            const marker = L.marker([lat, lon]).addTo(map).bindPopup(popupContent, { minWidth: 250 });
+            const marker = L.marker([lat, lon]).addTo(map).bindPopup(popupContent, { minWidth: 320 });
             return marker;
         }
 
-        // --- Loop through data to create markers and populate search list ---
         citiesData.forEach(cityData => {
-            // Create a marker and store it
             const marker = createMarkerWithPopup(cityData.lat, cityData.lon, cityData.city, cityData.count, cityData.instructors);
             markers[cityData.city] = marker;
 
-            // Add each instructor to the global search list with their location info
             cityData.instructors.forEach(instructor => {
-                allInstructors.push({
-                    ...instructor, // spread operator to copy name and skill
-                    city: cityData.city,
-                    lat: cityData.lat,
-                    lon: cityData.lon
-                });
+                allInstructors.push({ ...instructor, city: cityData.city, lat: cityData.lat, lon: cityData.lon });
             });
         });
         
-        // --- New Search Functionality ---
         const searchInput = document.getElementById('instructorSearch');
         const resultsContainer = document.getElementById('searchResults');
 
         searchInput.addEventListener('input', (e) => {
             const searchTerm = e.target.value.toLowerCase().trim();
-            resultsContainer.innerHTML = ''; // Clear previous results
+            resultsContainer.innerHTML = '';
 
-            if (searchTerm.length < 1) {
-                return; // Don't show results for empty input
-            }
+            if (searchTerm.length < 1) return;
 
             const matches = allInstructors.filter(instructor =>
                 instructor.name.toLowerCase().includes(searchTerm) ||
@@ -244,29 +229,32 @@
             );
 
             matches.forEach(match => {
-                const resultItem = document.createElement('div');
-                resultItem.className = 'search-result-item';
-                resultItem.innerHTML = `<b>${match.name}</b><small>${match.skill} &middot; ${match.city}</small>`;
+                const resultItem = document.createElement('a');
+                resultItem.href = '#';
+                resultItem.className = 'list-group-item list-group-item-action search-result-item';
+                resultItem.innerHTML = `<b>${match.name}</b><small class="d-block text-muted">${match.skill} &middot; ${match.city}</small>`;
                 
-                resultItem.addEventListener('click', () => {
-                    map.flyTo([match.lat, match.lon], 13); // Zoom to the city
-                    markers[match.city].openPopup();      // Open the city's popup
+                resultItem.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    map.flyTo([match.lat, match.lon], 13);
+                    markers[match.city].openPopup();
                     
-                    // Clear search after selection
-                    searchInput.value = '';
-                    resultsContainer.innerHTML = '';
+                    // On mobile, hide the search list to show the map
+                    if(window.innerWidth < 768) {
+                        searchInput.value = '';
+                        resultsContainer.innerHTML = '';
+                    }
                 });
 
                 resultsContainer.appendChild(resultItem);
             });
         });
 
-        // Hide search results when clicking anywhere on the map
         map.on('click', () => {
-            resultsContainer.innerHTML = '';
+            // Optional: clear search when clicking the map
+            // resultsContainer.innerHTML = ''; 
         });
 
     </script>
 </body>
-
 </html>
